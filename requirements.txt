@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+requests
+motor
+python-multipart
+pymongo
+confluent-kafka
+httpx
+python-json-logger
+aiofiles
+aiohttp
+markdown2
+python-json-logger
+git+https://github.com/ahmetoner/fastapi-offline-swagger-ui
