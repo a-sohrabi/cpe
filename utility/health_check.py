@@ -28,10 +28,10 @@ async def check_kafka():
         producer.send(test_topic, test_key, test_value)
         producer.flush()
 
-        return {"message": "Test message sent successfully!"}
+        return True
     except Exception as e:
         log_error(e, {'function': 'check_kafka', 'context': 'connection to kafka'})
-        return {"message": "Failed to send test message", "error": str(e)}
+        return False
 
 
 async def check_url(url):
@@ -62,10 +62,10 @@ async def check_loki():
                 ]
             })
             response.raise_for_status()
-            return {"loki": "connected"}
+            return True
     except Exception as e:
         log_error(e, {'function': 'check_loki', 'context': 'health check loki'})
-        return {"loki": f"disconnected: {e}"}
+        return False
 
 
 async def check_internet_connection():

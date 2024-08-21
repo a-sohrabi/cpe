@@ -24,7 +24,6 @@ async def download_and_extract(url: str, zip_path: Path, extract_to: Path) -> Pa
     await reset_stats()
     await download_file(url, zip_path)
     await extract_zip(zip_path, extract_to)
-    print(extract_to / zip_path.stem)
     return extract_to / zip_path.stem
 
 
@@ -48,7 +47,6 @@ async def update_cpes():
     url = settings.CPE_URL
     zip_path = base_dir / 'official-cpe-dictionary_v2.3.xml.zip'
     xml_file_path = await download_and_extract(url, zip_path, extract_to)
-    print(xml_file_path)
     await process_cpes(xml_file_path)
 
 
@@ -72,11 +70,11 @@ async def check_health():
     internet_status = await check_internet_connection()
 
     return {
-        "internet": "connected" if internet_status else "disconnected",
-        "mongo": "connected" if mongo_status else "disconnected",
-        "kafka": "connected" if kafka_status else "disconnected",
-        "cpe_url": "accessible" if cpe_status else "inaccessible",
-        "loki": "accessible" if loki_status else "inaccessible"
+        "internet": internet_status,
+        "mongo": mongo_status,
+        "kafka": kafka_status,
+        "cpe_url": cpe_status,
+        "loki": loki_status
     }
 
 

@@ -1,47 +1,25 @@
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import List
+
+from lxml import etree
 
 from .logger import logger, log_error
 from .schemas import CPECreate
 
-# Define the namespaces used in the XML
-NAMESPACE = "http://cpe.mitre.org/dictionary/2.0"
-CPE23_NAMESPACE = "http://scap.nist.gov/schema/cpe-extension/2.3"
-
-# A dictionary to hold the namespaces
-NAMESPACES = {
-    'cpe': NAMESPACE,
-    'cpe23': CPE23_NAMESPACE
-}
-
 
 async def parse_xml(xml_path: Path) -> List[CPECreate]:
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-
+        context = etree.iterparse(str(xml_path), tag="{http://cpe.mitre.org/dictionary/2.0}cpe-item", events=('end',))
         cpes = []
-        # Find all cpe-item elements using the default namespace
-        for item in root.findall("cpe:cpe-item", NAMESPACES):
-            # CPE 2.3 item
-            cpe_id_element = item.find("cpe23:cpe23-item", NAMESPACES)
-            cpe_id = cpe_id_element.get("name") if cpe_id_element is not None else None
+        for _, elem in context:
+            cpe_id = elem.find("{http://scap.nist.gov/schema/cpe-extension/2.3}cpe23-item").get("name")
+            title = elem.find("{http://cpe.mitre.org/dictionary/2.0}title").text
+            references = [ref.text for ref in elem.findall("{http://cpe.mitre.org/dictionary/2.0}reference")]
+            deprecated_element = elem.find("{http://scap.nist.gov/schema/cpe-extension/2.3}deprecated")
+            deprecated = deprecated_element is not None and deprecated_element.text == "true"
+            deprecated_by = elem.find(
+                "{http://scap.nist.gov/schema/cpe-extension/2.3}deprecated-by").text if deprecated else None
 
-            # Title
-            title_element = item.find("cpe:title", NAMESPACES)
-            title = title_element.text if title_element is not None else None
-
-            # References
-            references = [ref.text for ref in item.findall("cpe:references/cpe:reference", NAMESPACES)]
-
-            # Deprecated status
-            deprecated_element = item.find("cpe23:deprecated", NAMESPACES)
-            deprecated = deprecated_element.text == "true" if deprecated_element is not None else False
-            deprecated_by_element = item.find("cpe23:deprecated-by", NAMESPACES)
-            deprecated_by = deprecated_by_element.text if deprecated_by_element is not None else None
-
-            # Add to the list
             cpes.append(CPECreate(
                 cpe_id=cpe_id,
                 title=title,
@@ -49,6 +27,11 @@ async def parse_xml(xml_path: Path) -> List[CPECreate]:
                 deprecated=deprecated,
                 deprecated_by=deprecated_by,
             ))
+
+            # Clear the element from memory
+            elem.clear()
+            while elem.getprevious() is not None:
+                del elem.getparent()[0]
 
         logger.info("XML parsing completed")
         return cpes
