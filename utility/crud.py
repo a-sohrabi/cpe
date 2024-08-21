@@ -1,10 +1,12 @@
 import asyncio
 import time
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
 from typing import Optional
 
 import aiofiles
+import pytz
 from pydantic_core._pydantic_core import ValidationError
 from pymongo.errors import BulkWriteError
 
@@ -13,6 +15,8 @@ from .database import cpe_collection
 from .kafka_producer import producer
 from .logger import log_error
 from .schemas import CPEResponse, CPECreate
+
+tehran_tz = pytz.timezone('Asia/Tehran')
 
 stats = {
     "inserted": 0,
@@ -102,7 +106,9 @@ def record_stats():
                 f"{seconds:.2f} seconds"
             )
 
-            stats["last_called"] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
+            start_time_dt = datetime.fromtimestamp(start_time, tz=pytz.utc).astimezone(tehran_tz)
+
+            stats["last_called"] = start_time_dt.strftime('%Y-%m-%d %H:%M:%S')
             stats["durations"] = human_readable_duration
 
             return result
