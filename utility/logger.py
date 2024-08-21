@@ -82,4 +82,3 @@ def log_error(e: Exception, extra_context: dict = None):
         f"An error occurred: ",
         extra={"tags": log_data}
     )
-
