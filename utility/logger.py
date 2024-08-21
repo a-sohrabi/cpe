@@ -75,7 +75,6 @@ def log_error(e: Exception, extra_context: dict = None):
         "error_message": str(e),
     }
 
-
     if extra_context:
         log_data.update(extra_context)
 
