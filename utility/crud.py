@@ -1,3 +1,4 @@
+import asyncio
 import time
 from functools import wraps
 from pathlib import Path
@@ -28,38 +29,39 @@ async def get_cpe(cpe_id: str) -> Optional[CPEResponse]:
         return CPEResponse(**document)
 
 
+semaphore = asyncio.Semaphore(10)
+
+
 async def create_or_update_cpe(cpe: CPECreate):
-    global stats
-    result = None
-    try:
-        print('creadfsafasdf cpe', cpe.cpe_id)
-        result = await cpe_collection.update_one(
-            {"cpe_id": cpe.cpe_id},
-            {"$set": cpe.dict()},
-            upsert=True
-        )
-        if result.upserted_id:
-            stats['inserted'] += 1
-        else:
-            stats['updated'] += 1
-
+    async with semaphore:
+        global stats
         try:
-            producer.send(settings.KAFKA_TOPIC, key=str(cpe.cpe_id), value=cpe.json())
-            producer.flush()
-        except Exception as ke:
-            log_error(ke, {'function': ' create_or_update_cpe', 'context': 'kafka producing', 'input': cpe.dict()})
-            stats['errors'] += 1
-    except ValidationError as e:
-        log_error(e, {'function': ' create_or_update_cpe', 'context': 'pydantic validation', 'input': cpe.dict()})
-        stats['errors'] += 1
-    except BulkWriteError as bwe:
-        log_error(bwe, {'function': ' create_or_update_cpe', 'context': 'bulk write error', 'input': cpe.dict()})
-        stats['errors'] += 1
-    except Exception as e:
-        log_error(e, {'function': ' create_or_update_cpe', 'context': 'other exceptions', 'input': cpe.dict()})
-        stats['errors'] += 1
+            result = await cpe_collection.update_one(
+                {"cpe_id": cpe.cpe_id},
+                {"$set": cpe.dict()},
+                upsert=True
+            )
+            if result.upserted_id:
+                stats['inserted'] += 1
+            else:
+                stats['updated'] += 1
 
-    return result
+            try:
+                producer.send(settings.KAFKA_TOPIC, key=str(cpe.cpe_id), value=cpe.json())
+            except Exception as ke:
+                log_error(ke, {'function': 'create_or_update_cpe', 'context': 'kafka producing', 'input': cpe.dict()})
+                stats['errors'] += 1
+        except ValidationError as e:
+            log_error(e, {'function': 'create_or_update_cpe', 'context': 'pydantic validation', 'input': cpe.dict()})
+            stats['errors'] += 1
+        except BulkWriteError as bwe:
+            log_error(bwe, {'function': 'create_or_update_cpe', 'context': 'bulk write error', 'input': cpe.dict()})
+            stats['errors'] += 1
+        except Exception as e:
+            log_error(e, {'function': 'create_or_update_cpe', 'context': 'other exceptions', 'input': cpe.dict()})
+            stats['errors'] += 1
+
+        return result
 
 
 async def reset_stats():
