@@ -83,18 +83,18 @@ async def update_cpes():
         raise  # Re-raise the exception to handle it at a higher level
 
 
-@router.post("/update/{token}")
-async def update_cpes_endpoint(background_tasks: BackgroundTasks,token:str, username: str = Depends(authenticate)):
+@router.post("/all/")
+async def update_cpes_endpoint(background_tasks: BackgroundTasks, token: str, username: str = Depends(authenticate)):
     if not token == os.getenv('VERIFICATION_TOKEN'):
         return {"error": "Invalid request"}
 
-    # try:
-    logger.info("Received update CPE request.")
-    background_tasks.add_task(update_cpes)  # Run this in the background
-    return {"message": 'Started updating CPEs in the background!'}
-    # except Exception as e:
-    #     logger.error(f"Error in update_cpes_endpoint: {str(e)}")
-    #     return {"error": "Failed to start CPE update."}
+    try:
+        logger.info("Received update CPE request.")
+        background_tasks.add_task(update_cpes)  # Run this in the background
+        return {"message": 'Started updating CPEs in the background!'}
+    except Exception as e:
+        logger.error(f"Error in update_cpes_endpoint: {str(e)}")
+        return {"error": "Failed to start CPE update."}
 
 
 @router.get("/stats")
