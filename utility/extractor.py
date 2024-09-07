@@ -9,13 +9,11 @@ logger = LogManager('extractor.py')
 
 
 async def extract_zip(zip_path: Path, extract_to: Path):
-    # try:
+    try:
         os.makedirs(extract_to, exist_ok=True)
-        print('444444444444444444444')
         await asyncio.to_thread(extract_zip_sync, zip_path, extract_to)
-        logger.info(f"File extracted to: {extract_to}")
-    # except Exception as e:
-    #     logger.error(e)
+    except Exception as e:
+        logger.error(e)
 
 
 def extract_zip_sync(zip_path: Path, extract_to: Path):
