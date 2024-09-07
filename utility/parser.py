@@ -3,11 +3,10 @@ from typing import AsyncGenerator, List
 
 import aiofiles
 import ijson
+from cpe import CPE
 
 from .logger import LogManager
 from .models import CPECreate
-
-from cpe import CPE
 
 logger = LogManager('parser.py')
 
@@ -27,14 +26,12 @@ async def parse_json_in_batches(json_path: Path, batch_size: int = 2_000) -> Asy
                     logger.error(f"Error parsing CPE URI {cpe23Uri}: {str(e)}")
                     continue
 
-                if cpe_obj.is_application():
-                    cpe_type = "software"
-                elif cpe_obj.is_operating_system():
-                    cpe_type = "operating_system"
-                elif cpe_obj.is_hardware():
-                    cpe_type = "hardware"
-                else:
-                    cpe_type = 'other'
+                cpe_type = (
+                    "software" if cpe_obj.is_application() else
+                    "operating_system" if cpe_obj.is_operating_system() else
+                    "hardware" if cpe_obj.is_hardware() else
+                    "other"
+                )
 
                 cpe = CPECreate(
                     cpe_version=cpe_obj.get_version()[0],
@@ -67,11 +64,12 @@ async def parse_json_in_batches(json_path: Path, batch_size: int = 2_000) -> Asy
         logger.error(f"Error while streaming JSON: {str(e)}")
 
 
-async def parse_cpes_from_cve_json_in_batches(json_path: Path, batch_size: int = 50) -> AsyncGenerator[List[CPECreate], None]:
+async def parse_cpes_from_cve_json_in_batches(json_path: Path, batch_size: int = 2_000) -> AsyncGenerator[
+    List[CPECreate], None]:
     try:
         batch = []
         async with aiofiles.open(json_path, "rb") as json_file:
-            async for cve_item in ijson.items(json_file, "cve_item"):
+            async for cve_item in ijson.items(json_file, "CVE_Items.item"):
                 configurations = cve_item.get("configurations", {})
                 nodes = configurations.get("nodes", [])
 
@@ -89,16 +87,16 @@ async def parse_cpes_from_cve_json_in_batches(json_path: Path, batch_size: int =
                             logger.error(f"Error parsing CPE URI {cpe23Uri}: {str(e)}")
                             continue
 
-                        if cpe_obj.is_application():
-                            cpe_type = "software"
-                        elif cpe_obj.is_operating_system():
-                            cpe_type = "operating_system"
-                        elif cpe_obj.is_hardware():
-                            cpe_type = "hardware"
-                        else:
-                            cpe_type = 'other'
+                        cpe_type = (
+                            "software" if cpe_obj.is_application() else
+                            "operating_system" if cpe_obj.is_operating_system() else
+                            "hardware" if cpe_obj.is_hardware() else
+                            "other"
+                        )
 
                         cpe = CPECreate(
+                            cpe_name=cpe_obj.as_fs(),
+                            type=cpe_type,
                             cpe_version=cpe_obj.get_version()[0],
                             part=cpe_obj.get_part()[0],
                             vendor=cpe_obj.get_vendor()[0],
@@ -110,11 +108,8 @@ async def parse_cpes_from_cve_json_in_batches(json_path: Path, batch_size: int =
                             sw_edition=cpe_obj.get_software_edition()[0],
                             target_sw=cpe_obj.get_target_software()[0],
                             target_hw=cpe_obj.get_target_hardware()[0],
-                            other=cpe_obj.get_other()[0],
-                            cpe_name=cpe_obj.as_fs(),
-                            type=cpe_type
+                            other=cpe_obj.get_other()[0]
                         )
-                        print(cpe.type)
 
                         batch.append(cpe)
 
