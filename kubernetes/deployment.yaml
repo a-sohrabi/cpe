@@ -22,3 +22,22 @@ spec:
         ports:
           - containerPort: $CONTAINER_PORT
       restartPolicy: Always
+  
+          volumeMounts:
+          - name: config-map
+            mountPath: "/app/.env"
+            subPath: .env
+            readOnly: true
+
+          - mountPath: "/app/data/downloaded"
+            name: pvc
+
+
+      volumes:
+      - name: config-map
+        configMap:
+          name: env-file
+
+      - name: pvc
+        persistentVolumeClaim:
+          claimName: storage-pvc
