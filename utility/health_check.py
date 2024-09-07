@@ -7,7 +7,9 @@ from httpx import AsyncClient
 from .config import settings
 from .database import client
 from .kafka_producer import producer
-from .logger import logger, log_error
+from .logger import LogManager
+
+logger = LogManager('health_check.py')
 
 
 async def check_mongo():
@@ -15,7 +17,7 @@ async def check_mongo():
         client.admin.command('ping')
         return True
     except ConnectionError as e:
-        log_error(e, {'function': 'check_mongo', 'context': 'mongodb connection'})
+        logger.error(e)
         return False
 
 
@@ -25,12 +27,12 @@ async def check_kafka():
         test_key = "test_key"
         test_value = "test_value"
 
-        producer.send(test_topic, test_key, test_value)
+        producer.add_message(test_topic, test_key, test_value)
         producer.flush()
 
         return True
     except Exception as e:
-        log_error(e, {'function': 'check_kafka', 'context': 'connection to kafka'})
+        logger.error(e)
         return False
 
 
@@ -44,7 +46,7 @@ async def check_url(url):
                     logger.error(f"Failed to access {url}: {response.status}")
                     return False
         except Exception as e:
-            log_error(e, {'function': 'check_url', 'context': 'checking cpe urls', 'input': url})
+            logger.error(e)
             return False
 
 
@@ -64,7 +66,7 @@ async def check_loki():
             response.raise_for_status()
             return True
     except Exception as e:
-        log_error(e, {'function': 'check_loki', 'context': 'health check loki'})
+        logger.error(e)
         return False
 
 
@@ -73,6 +75,5 @@ async def check_internet_connection():
         socket.create_connection(("8.8.8.8", 53), timeout=2)
         return True
     except OSError as e:
-        log_error(e,
-                  {'function': 'check_internet_connection', 'context': 'check if the service is connected to internet'})
+        logger.error(e)
         return False
