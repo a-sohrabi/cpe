@@ -31,4 +31,4 @@ if os.path.exists(assets_path + "/swagger-ui.css") and os.path.exists(assets_pat
 
     applications.get_swagger_ui_html = swagger_monkey_patch
 
-app.include_router(endpoints.router, prefix='/cpe/api')
+app.include_router(endpoints.router, prefix='/cpe/api', tags=['CPE'])
