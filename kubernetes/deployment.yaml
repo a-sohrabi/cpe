@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: $MICRO_SERVICE
+  name: $MICRO_SERVICE
+spec:
+  replicas: $REPLICAS
+  selector:
+    matchLabels:
+      app: $MICRO_SERVICE
+  template:
+    metadata:
+      labels:
+        app: $MICRO_SERVICE
+    spec:
+      imagePullSecrets:
+      - name: $SECRET_NAME
+      containers:
+      - image: $IMAGE_NAME:$IMAGE_TAG
+        name: $MICRO_SERVICE
+        ports:
+          - containerPort: $CONTAINER_PORT
+      restartPolicy: Always
