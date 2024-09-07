@@ -3,16 +3,19 @@ import os
 import zipfile
 from pathlib import Path
 
-from .logger import logger, log_error
+from .logger import LogManager
+
+logger = LogManager('extractor.py')
 
 
 async def extract_zip(zip_path: Path, extract_to: Path):
-    try:
+    # try:
         os.makedirs(extract_to, exist_ok=True)
+        print('444444444444444444444')
         await asyncio.to_thread(extract_zip_sync, zip_path, extract_to)
         logger.info(f"File extracted to: {extract_to}")
-    except Exception as e:
-        log_error(e, {'function': 'extract_zip', 'context': 'unzipping error'})
+    # except Exception as e:
+    #     logger.error(e)
 
 
 def extract_zip_sync(zip_path: Path, extract_to: Path):
