@@ -1,5 +1,5 @@
 from bson import ObjectId
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PyObjectId(ObjectId):
@@ -19,11 +19,20 @@ class PyObjectId(ObjectId):
 
 
 class CPEBase(BaseModel):
-    cpe_id: str
-    title: str
-    references: list
-    deprecated: bool
-    deprecated_by: str | None
+    # Parsed CPE fields based on your requirement
+    cpe_version: str
+    part: str
+    vendor: str
+    product: str
+    version: str
+    update: str
+    edition: str
+    language: str
+    sw_edition: str
+    target_sw: str
+    target_hw: str
+    other: str
+    cpe_id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
 
     class Config:
         populate_by_name = True
