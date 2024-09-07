@@ -3,20 +3,21 @@ import time
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 import aiofiles
 import pytz
-from pydantic_core._pydantic_core import ValidationError
+from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
-from .config import settings
 from .database import cpe_collection
 from .kafka_producer import producer
-from .logger import log_error
+from .logger import LogManager
 from .schemas import CPEResponse, CPECreate
 
 tehran_tz = pytz.timezone('Asia/Tehran')
+
+logger = LogManager('crud.py')
 
 stats = {
     "inserted": 0,
@@ -33,39 +34,61 @@ async def get_cpe(cpe_id: str) -> Optional[CPEResponse]:
         return CPEResponse(**document)
 
 
-semaphore = asyncio.Semaphore(10)
+async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
+    global stats
+    operations = []
+    created_cpes = []
+    updated_cpes = []
 
-
-async def create_or_update_cpe(cpe: CPECreate):
-    async with semaphore:
-        global stats
-        try:
-            result = await cpe_collection.update_one(
-                {"cpe_id": cpe.cpe_id},
+    for cpe in cpes:
+        operations.append(
+            UpdateOne(
+                {"cpe_id": cpe.cpe_id},  # Ensure that cpe_id exists in your CPECreate model
                 {"$set": cpe.dict()},
                 upsert=True
             )
-            if result.upserted_id:
-                stats['inserted'] += 1
-            else:
-                stats['updated'] += 1
+        )
 
-            try:
-                producer.send(settings.KAFKA_TOPIC, key=str(cpe.cpe_id), value=cpe.json())
-            except Exception as ke:
-                log_error(ke, {'function': 'create_or_update_cpe', 'context': 'kafka producing', 'input': cpe.dict()})
-                stats['errors'] += 1
-        except ValidationError as e:
-            log_error(e, {'function': 'create_or_update_cpe', 'context': 'pydantic validation', 'input': cpe.dict()})
-            stats['errors'] += 1
+    if operations:
+        try:
+            result = await cpe_collection.bulk_write(operations)
+
+            matched_count = result.matched_count
+            upserted_count = len(result.upserted_ids)
+
+            for i, cpe in enumerate(cpes):
+                if i in result.upserted_ids:
+                    created_cpes.append(cpe)
+                else:
+                    updated_cpes.append(cpe)
+
+            stats['inserted'] += upserted_count
+            stats['updated'] += matched_count
+
+            logger.info(f"Inserted {upserted_count} and updated {matched_count} CPEs.")
+
+            # Send Kafka messages concurrently
+            # await send_kafka_messages(created_cpes, updated_cpes)
+
         except BulkWriteError as bwe:
-            log_error(bwe, {'function': 'create_or_update_cpe', 'context': 'bulk write error', 'input': cpe.dict()})
-            stats['errors'] += 1
+            logger.error(f"Bulk write error: {bwe.details}")
+            stats['error'] += 1
         except Exception as e:
-            log_error(e, {'function': 'create_or_update_cpe', 'context': 'other exceptions', 'input': cpe.dict()})
-            stats['errors'] += 1
+            logger.error(f"General error during bulk write: {str(e)}")
+            stats['error'] += 1
 
-        return result
+
+async def send_kafka_messages(created_cpes, updated_cpes):
+    # Produce Kafka messages for created CPEs
+    for cpe in created_cpes:
+        producer.add_message('cpe.extract.created', key=str(cpe.cpe_id), value=cpe.json())
+
+    # Produce Kafka messages for updated CPEs
+    for cpe in updated_cpes:
+        producer.add_message('cpe.extract.updated', key=str(cpe.cpe_id), value=cpe.json())
+
+    # Flush Kafka messages
+    await asyncio.to_thread(producer.flush)
 
 
 async def reset_stats():
@@ -91,7 +114,7 @@ def record_stats():
             try:
                 result = await func(*args, **kwargs)
             except Exception as e:
-                log_error(e)
+                logger.error(e)
                 result = None
             end_time = time.time()
             duration = end_time - start_time
