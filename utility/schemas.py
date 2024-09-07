@@ -32,7 +32,7 @@ class CPEBase(BaseModel):
     target_sw: str
     target_hw: str
     other: str
-    cpe_id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    cpe_name: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
 
     class Config:
         populate_by_name = True
