@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     KAFKA_TOPIC: str = os.getenv('KAFKA_TOPIC')
     FILES_BASE_DIR: str = 'data'
     LOKI_URL: str = os.getenv('LOKI_URL')
+    CPE_MODIFIED_URL: str = os.getenv('NVD_MODIFIED_URL')
+    CPE_RECENT_URL: str = os.getenv('NVD_RECENT_URL')
+    DEFAULT_PASSWORD: str = os.getenv('DEFAULT_PASSWORD')
+    DEFAULT_USERNAME: str = os.getenv('DEFAULT_USERNAME')
 
     class Config:
         env_file = "../.env"

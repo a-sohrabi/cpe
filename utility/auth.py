@@ -1,16 +1,13 @@
-import os
-
-from dotenv import load_dotenv
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from passlib.context import CryptContext
 
-load_dotenv()
+from .config import settings
 
 security = HTTPBasic()
 
-USERNAME = os.getenv('DEFAULT_USERNAME')
-PASSWORD = os.getenv('DEFAULT_PASSWORD')
+USERNAME = settings.DEFAULT_USERNAME
+PASSWORD = settings.DEFAULT_PASSWORD
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 hashed_password = pwd_context.hash(PASSWORD)
