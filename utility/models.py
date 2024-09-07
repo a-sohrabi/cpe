@@ -32,7 +32,7 @@ class CPECreate(BaseModel):
     target_sw: str
     target_hw: str
     other: str
-    cpe_id: str
+    cpe_name: str
     type: str
 
     class Config:
