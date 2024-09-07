@@ -21,9 +21,9 @@ spec:
         name: $MICRO_SERVICE
         ports:
           - containerPort: $CONTAINER_PORT
-      restartPolicy: Always
+
   
-          volumeMounts:
+        volumeMounts:
           - name: config-map
             mountPath: "/app/.env"
             subPath: .env
@@ -41,3 +41,4 @@ spec:
       - name: pvc
         persistentVolumeClaim:
           claimName: storage-pvc
+      restartPolicy: Always
