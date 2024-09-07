@@ -43,7 +43,7 @@ async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
     for cpe in cpes:
         operations.append(
             UpdateOne(
-                {"cpe_name": cpe.cpe_name},  # Ensure that cpe_name exists in your CPECreate model
+                {"cpe_name": cpe.cpe_name},
                 {"$set": cpe.dict()},
                 upsert=True
             )
@@ -65,9 +65,6 @@ async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
             stats['inserted'] += upserted_count
             stats['updated'] += matched_count
 
-            logger.info(f"Inserted {upserted_count} and updated {matched_count} CPEs.")
-
-            # Send Kafka messages concurrently
             await send_kafka_messages(created_cpes, updated_cpes)
 
         except BulkWriteError as bwe:
@@ -79,15 +76,12 @@ async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
 
 
 async def send_kafka_messages(created_cpes, updated_cpes):
-    # Produce Kafka messages for created CPEs
     for cpe in created_cpes:
         producer.add_message('cpe.extract.created', key=str(cpe.cpe_name), value=cpe.json())
 
-    # Produce Kafka messages for updated CPEs
     for cpe in updated_cpes:
         producer.add_message('cpe.extract.updated', key=str(cpe.cpe_name), value=cpe.json())
 
-    # Flush Kafka messages
     await asyncio.to_thread(producer.flush)
 
 

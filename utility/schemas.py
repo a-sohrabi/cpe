@@ -20,6 +20,8 @@ class PyObjectId(ObjectId):
 
 class CPEBase(BaseModel):
     # Parsed CPE fields based on your requirement
+    cpe_name: str
+    type: str
     cpe_version: str
     part: str
     vendor: str
@@ -32,7 +34,6 @@ class CPEBase(BaseModel):
     target_sw: str
     target_hw: str
     other: str
-    cpe_name: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
 
     class Config:
         populate_by_name = True
