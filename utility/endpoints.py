@@ -28,39 +28,25 @@ README_FILE_PATH = Path(__file__).parent.parent / 'README.md'
 
 
 async def download_and_extract(url: str, zip_path: Path, extract_to: Path) -> Path:
-    # try:
-        await reset_stats()
-        logger.info("Starting download and extraction process.")
-        await download_file(url, zip_path)
-        logger.info("Download completed.")
-        await extract_zip(zip_path, extract_to)
-        logger.info("Extraction completed.")
-        return extract_to / zip_path.stem
-    # except Exception as e:
-    #     logger.error(f"Error during download and extraction: {str(e)}")
-    #     raise  # Re-raise the exception to handle it at a higher level
+    await reset_stats()
+    await download_file(url, zip_path)
+    await extract_zip(zip_path, extract_to)
+    return extract_to / zip_path.stem
 
 
 async def process_cpes_in_batches(json_file_path: Path):
     try:
-        logger.info("Starting JSON processing.")
-
-        # Define a semaphore to control the concurrency limit
-        semaphore = asyncio.Semaphore(10)  # Adjust the concurrency as needed
+        semaphore = asyncio.Semaphore(10)
 
         async def process_batch(batch):
             async with semaphore:
                 await bulk_create_or_update_cpes(batch)
 
-        # Process batches of CPEs
         async for batch in parse_json_in_batches(json_file_path):
-            logger.info(f"Processing batch of size: {len(batch)}")
             await process_batch(batch)
-
         logger.info("Finished processing all CPE batches.")
     except Exception as e:
         logger.error(f"Error during processing CPEs in batches: {str(e)}")
-        raise  # Re-raise the exception to handle it at a higher level
 
 
 @record_stats()
@@ -68,42 +54,30 @@ async def update_cpes():
     try:
         base_dir = Path(settings.FILES_BASE_DIR) / 'downloaded'
         extract_to = base_dir / 'extracted_files'
-        logger.info("Starting CPE update.")
 
         url = settings.CPE_URL
         zip_path = base_dir / 'nvdcpematch-1.0.json.zip'
         json_file_path = await download_and_extract(url, zip_path, extract_to)
 
-        logger.info(f"JSON file path: {json_file_path}")
-
         await process_cpes_in_batches(json_file_path)
-        logger.info("CPE update completed.")
+        logger.info("Getting all CPEs completed.")
     except Exception as e:
-        logger.error(f"Error during CPE update: {str(e)}")
-        raise  # Re-raise the exception to handle it at a higher level
+        logger.error(f"Error during getting all CPEs: {str(e)}")
 
 
 async def process_recent_cpes_in_batches(json_file_path: Path):
     try:
-        logger.info("Starting JSON processing.")
-
-        # Define a semaphore to control the concurrency limit
-        semaphore = asyncio.Semaphore(10)  # Adjust the concurrency as needed
+        semaphore = asyncio.Semaphore(10)
 
         async def process_batch(batch):
             async with semaphore:
                 await bulk_create_or_update_cpes(batch)
 
-        # Process batches of CPEs
         async for batch in parse_cpes_from_cve_json_in_batches(json_file_path):
-            print('*********************',len(batch))
-            logger.info(f"Processing batch of size: {len(batch)}")
             await process_batch(batch)
-
         logger.info("Finished processing all CPE batches.")
     except Exception as e:
         logger.error(f"Error during processing CPEs in batches: {str(e)}")
-        raise  # Re-raise the exception to handle it at a higher level
 
 
 @record_stats()
@@ -111,19 +85,15 @@ async def update_recent_cpes(feed_type: str):
     try:
         base_dir = Path(settings.FILES_BASE_DIR) / 'downloaded'
         extract_to = base_dir / 'extracted_files'
-        logger.info("Starting CPE update.")
 
         url = getattr(settings, f"CPE_{feed_type.upper()}_URL")
         zip_path = base_dir / f'nvdcve-1.1-{feed_type}.json.zip'
         json_file_path = await download_and_extract(url, zip_path, extract_to)
 
-        logger.info(f"JSON file path: {json_file_path}")
-
         await process_recent_cpes_in_batches(json_file_path)
-        logger.info("CPE update completed.")
+        logger.info("Getting recent and modified CPEs completed.")
     except Exception as e:
-        logger.error(f"Error during CPE update: {str(e)}")
-        raise  # Re-raise the exception to handle it at a higher level
+        logger.error(f"Error during getting modified and recent CPEs: {str(e)}")
 
 
 @router.post("/all")
@@ -133,7 +103,7 @@ async def update_cpes_endpoint(background_tasks: BackgroundTasks, token: str, us
 
     try:
         logger.info("Received update CPE request.")
-        background_tasks.add_task(update_cpes)  # Run this in the background
+        background_tasks.add_task(update_cpes)
         return {"message": 'Started updating CPEs in the background!'}
     except Exception as e:
         logger.error(f"Error in update_cpes_endpoint: {str(e)}")
@@ -152,7 +122,7 @@ async def update_recent_cpes_endpoint(background_tasks: BackgroundTasks, token: 
         background_tasks.add_task(update_recent_cpes, "modified")
         return {"message": 'Started updating CPEs in the background!'}
     except Exception as e:
-        logger.error(f"Error in update_cpes_endpoint: {str(e)}")
+        logger.error(f"Error in update_recent_CPEs_endpoint: {str(e)}")
         return {"error": "Failed to start CPE update."}
 
 
