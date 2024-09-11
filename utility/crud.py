@@ -34,7 +34,7 @@ async def get_cpe(cpe_name: str) -> Optional[CPEResponse]:
         return CPEResponse(**document)
 
 
-async def bulk_create_or_update_cpes(cpes: List[CPECreate], batch_size=1000):
+async def bulk_create_or_update_cpes(cpes: List[CPECreate], batch_size=1_000):
     global stats
     operations = []
     created_cpes = []
@@ -86,7 +86,7 @@ async def execute_bulk_write(operations, created_cpes, updated_cpes, cpe_objects
         stats['error'] += 1
 
 
-async def send_kafka_messages_in_batches(created_cpes, updated_cpes, batch_size=100):
+async def send_kafka_messages_in_batches(created_cpes, updated_cpes, batch_size=1_000):
     created_batches = [created_cpes[i:i + batch_size] for i in range(0, len(created_cpes), batch_size)]
     updated_batches = [updated_cpes[i:i + batch_size] for i in range(0, len(updated_cpes), batch_size)]
 
