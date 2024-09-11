@@ -14,7 +14,7 @@ from .downloader import download_file
 from .extractor import extract_zip
 from .health_check import check_mongo, check_kafka, check_url, check_internet_connection, check_loki
 from .logger import LogManager
-from .parser import parse_json_in_batches, parse_cpes_from_cve_json_in_batches
+from .parser import parse_cpes_from_cve_json_in_batches, parse_xml_in_batches
 
 load_dotenv()
 
@@ -41,9 +41,9 @@ async def process_cpes_in_batches(json_file_path: Path):
             async with semaphore:
                 await bulk_create_or_update_cpes(batch)
 
-        async for batch in parse_json_in_batches(json_file_path):
+        async for batch in parse_xml_in_batches(json_file_path):
             await process_batch(batch)
-        logger.info("Finished processing all CPE batches.")
+
     except Exception as e:
         logger.error(f"Error during processing CPEs in batches: {str(e)}")
 
@@ -55,9 +55,11 @@ async def update_cpes():
         extract_to = base_dir / 'extracted_files'
 
         url = settings.CPE_URL
-        zip_path = base_dir / 'nvdcpematch-1.0.json.zip'
+        zip_path = base_dir / 'official-cpe-dictionary_v2.3.xml.zip'
+
         json_file_path = await download_and_extract(url, zip_path, extract_to)
 
+        # Process batches from the XML file
         await process_cpes_in_batches(json_file_path)
         logger.info("Getting all CPEs completed.")
     except Exception as e:
@@ -74,7 +76,6 @@ async def process_recent_cpes_in_batches(json_file_path: Path):
 
         async for batch in parse_cpes_from_cve_json_in_batches(json_file_path):
             await process_batch(batch)
-        logger.info("Finished processing all CPE batches.")
     except Exception as e:
         logger.error(f"Error during processing CPEs in batches: {str(e)}")
 
