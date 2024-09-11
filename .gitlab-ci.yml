@@ -1,0 +1,83 @@
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "staging"
+      when: always
+    - when: never
+
+
+variables:
+  MONO_REPO: "api"
+  YAMLS_REPO: "k8s-yaml"
+  SECRET_NAME: "services"
+
+stages:
+  - build_update_manifest
+  - push_manifest
+
+.build:
+  stage: build_update_manifest
+  tags:
+    - shell
+    - docker
+  variables:
+    MICRO_SERVICE: ""
+    CONTAINER_PORT: ""
+    REPLICAS: ""
+    DOCKERFILE_NAME: ""
+    STAGE_NAME: ""
+    
+
+  before_script:
+    - export APP_VERSION=$(cat version.txt)
+    - export RANDOM_HASH=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 10)
+    - export IMAGE_NAME=$CI_REGISTRY_IMAGE/microservice/$MICRO_SERVICE-$STAGE_NAME
+    - export IMAGE_TAG=$APP_VERSION-$RANDOM_HASH
+
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $IMAGE_NAME:$IMAGE_TAG -f $DOCKERFILE_NAME --no-cache .
+    - docker push $IMAGE_NAME:$IMAGE_TAG
+    - envsubst < kubernetes/deployment.yaml > deployment-$MICRO_SERVICE.yaml
+
+  artifacts:
+    paths:
+      - deployment-$MICRO_SERVICE.yaml
+    expire_in: 1 hour
+
+build-production:
+  extends: .build
+  variables:
+    MICRO_SERVICE: api
+    CONTAINER_PORT: "8000"
+    REPLICAS: "1"
+    DOCKERFILE_NAME: "Dockerfile"
+    STAGE_NAME: "production"
+  only:
+      - main
+
+
+
+###################################### push manifest #########################################################
+
+push_updates-production:
+  stage: push_manifest
+  tags:
+    - shell
+    - docker
+  script:
+    - cd ..
+    - rm -rf $YAMLS_REPO
+    - git clone $REPOSITORY_YAML
+    - ls
+    - cp $MONO_REPO/deployment* $YAMLS_REPO
+    - cd $YAMLS_REPO
+    - git config --global user.email "runner@gmail.com"
+    - git config --global user.name "shell-runner"
+    - git add .
+    - git commit -m "update yaml files"
+    - git push
+    - cd ..
+    - rm -rf $YAMLS_REPO
+  only:
+    - main
+
