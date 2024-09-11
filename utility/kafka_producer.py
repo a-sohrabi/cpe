@@ -28,7 +28,7 @@ class KafkaProducer:
 
     def add_message(self, topic, key, value):
         self.message_queue.append((topic, key, value))
-        if len(self.message_queue) >= 1000:
+        if len(self.message_queue) >= 1_000:
             self.flush()
 
     def flush(self):
