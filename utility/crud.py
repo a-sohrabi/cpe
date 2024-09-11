@@ -34,11 +34,12 @@ async def get_cpe(cpe_name: str) -> Optional[CPEResponse]:
         return CPEResponse(**document)
 
 
-async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
+async def bulk_create_or_update_cpes(cpes: List[CPECreate], batch_size=1_000):
     global stats
     operations = []
     created_cpes = []
     updated_cpes = []
+    cpe_objects = []
 
     for cpe in cpes:
         operations.append(
@@ -48,41 +49,56 @@ async def bulk_create_or_update_cpes(cpes: List[CPECreate]):
                 upsert=True
             )
         )
+        cpe_objects.append(cpe)  # Track the CPE object for each operation
+
+        if len(operations) >= batch_size:
+            await execute_bulk_write(operations, created_cpes, updated_cpes, cpe_objects)
+            operations = []
+            cpe_objects = []
 
     if operations:
-        try:
-            result = await cpe_collection.bulk_write(operations)
+        await execute_bulk_write(operations, created_cpes, updated_cpes, cpe_objects)
 
-            matched_count = result.matched_count
-            upserted_count = len(result.upserted_ids)
-
-            for i, cpe in enumerate(cpes):
-                if i in result.upserted_ids:
-                    created_cpes.append(cpe)
-                else:
-                    updated_cpes.append(cpe)
-
-            stats['inserted'] += upserted_count
-            stats['updated'] += matched_count
-
-            await send_kafka_messages(created_cpes, updated_cpes)
-
-        except BulkWriteError as bwe:
-            logger.error(f"Bulk write error: {bwe.details}")
-            stats['error'] += 1
-        except Exception as e:
-            logger.error(f"General error during bulk write: {str(e)}")
-            stats['error'] += 1
+    await send_kafka_messages_in_batches(created_cpes, updated_cpes)
 
 
-async def send_kafka_messages(created_cpes, updated_cpes):
-    for cpe in created_cpes:
-        producer.add_message('cpe.extract.created', key=str(cpe.cpe_name), value=cpe.json())
+async def execute_bulk_write(operations, created_cpes, updated_cpes, cpe_objects):
+    try:
+        result = await cpe_collection.bulk_write(operations)
 
-    for cpe in updated_cpes:
-        producer.add_message('cpe.extract.updated', key=str(cpe.cpe_name), value=cpe.json())
+        matched_count = result.matched_count
+        upserted_count = len(result.upserted_ids)
 
-    await asyncio.to_thread(producer.flush)
+        # Match the operations with the corresponding CPE objects
+        for i, cpe in enumerate(cpe_objects):
+            if i in result.upserted_ids:
+                created_cpes.append(cpe)
+            else:
+                updated_cpes.append(cpe)
+
+        stats['inserted'] += upserted_count
+        stats['updated'] += matched_count
+    except BulkWriteError as bwe:
+        logger.error(f"Bulk write error: {bwe.details}")
+        stats['error'] += 1
+    except Exception as e:
+        logger.error(f"General error during bulk write: {str(e)}")
+        stats['error'] += 1
+
+
+async def send_kafka_messages_in_batches(created_cpes, updated_cpes, batch_size=1_000):
+    created_batches = [created_cpes[i:i + batch_size] for i in range(0, len(created_cpes), batch_size)]
+    updated_batches = [updated_cpes[i:i + batch_size] for i in range(0, len(updated_cpes), batch_size)]
+
+    for batch in created_batches:
+        for cpe in batch:
+            producer.add_message('cpe.extract.created', key=str(cpe.cpe_name), value=cpe.json())
+        await asyncio.to_thread(producer.flush)
+
+    for batch in updated_batches:
+        for cpe in batch:
+            producer.add_message('cpe.extract.updated', key=str(cpe.cpe_name), value=cpe.json())
+        await asyncio.to_thread(producer.flush)
 
 
 async def reset_stats():
