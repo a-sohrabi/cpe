@@ -24,7 +24,7 @@ idna==3.7
 ijson==3.3.0
 iniconfig==2.0.0
 Jinja2==3.1.6
-lxml==5.3.0
+lxml==6.1.0
 markdown-it-py==3.0.0
 markdown2==2.5.0
 MarkupSafe==2.1.5
