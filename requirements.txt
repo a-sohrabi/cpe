@@ -47,7 +47,7 @@ python-logging-loki==0.3.1
 python-multipart==0.0.31
 pytz==2024.1
 PyYAML==6.0.1
-requests==2.32.4
+requests==2.33.0
 rfc3339==6.2
 rich==13.7.1
 shellingham==1.5.4
